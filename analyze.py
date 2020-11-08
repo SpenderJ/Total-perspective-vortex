@@ -1,8 +1,5 @@
 # coding: utf-8
 
-import numpy as np
-import os
-import numpy as np
 import mne
 
 from mne.datasets import eegbci # Corresponds to the EEGCBI motor imagery
@@ -10,7 +7,6 @@ from mne import Epochs, pick_types, find_events, events_from_annotations
 from mne.io import concatenate_raws, read_raw_edf
 from mne.viz import *
 from mne.channels import make_standard_montage
-from utils import safe_opener
 
 dataset = 'eegmmidb/S001R01.edf'
 
@@ -19,7 +15,10 @@ dataset = 'eegmmidb/S001R01.edf'
 # avoid classification of evoked responses by using epochs that start 1s after
 # cue onset.
 
-tmin, tmax = -1.5, 2.5
+"""
+                Set params
+"""
+tmin, tmax = -1., 4.
 event_ids=dict(hands=2, feet=3)   # 2 -> hands   | 3 -> feet
 subject = 1  # Use data of subject number 1
 runs = [6, 10, 14]  # use only hand and feet motor imagery runs
