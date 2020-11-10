@@ -24,7 +24,7 @@ event_ids=dict(hands=2, feet=3)   # 2 -> hands   | 3 -> feet
 runs = [6, 10, 14]  # use only hand and feet motor imagery runs
 raw_fnames = list()
 
-for subject in range(1, 110):
+for subject in [s for s in range(1, 110) if s not in (88, 92, 100)]:
     tmp_raw_fnames = eegbci.load_data(subject, runs)
     raw_fnames += tmp_raw_fnames
 
@@ -80,4 +80,9 @@ print("SVC Classification accuracy: %f / Chance level: %f" % (np.mean(scores_svc
 
 csp.fit_transform(epochs_data_train, labels)
 
-csp.plot_patterns(epochs.info, ch_type='eeg', units='Patterns (AU)', size=1.5)
+evoked = epochs.average()
+evoked.data = csp.patterns_.T
+evoked.times = np.arange(evoked.data.shape[0])
+
+evoked.plot_topomap(times=[0, 1, 2, 3, 4, 5], ch_type='eeg')
+pass
