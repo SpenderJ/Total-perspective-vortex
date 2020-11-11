@@ -24,7 +24,7 @@ event_ids=dict(hands=2, feet=3)   # 2 -> hands   | 3 -> feet
 runs = [6, 10, 14]  # use only hand and feet motor imagery runs
 raw_fnames = list()
 
-for subject in [s for s in range(1, 110) if s not in (88, 92, 100)]:
+for subject in [s for s in range(1, 2) if s not in (88, 92, 100)]:
     tmp_raw_fnames = eegbci.load_data(subject, runs)
     raw_fnames += tmp_raw_fnames
 
@@ -37,10 +37,14 @@ eegbci.standardize(raw)
 # create 10-05 system
 montage = make_standard_montage('standard_1005')
 raw.set_montage(montage)
-raw.filter(8., 30., fir_design='firwin', skip_by_annotation='edge')
+raw.filter(7., 30., method='iir')
 
 events, _ = events_from_annotations(raw)
-picks = mne.pick_channels(raw.info["ch_names"], ["C3", "Cz", "C4"])
+
+# picks = mne.pick_channels(raw.info["ch_names"], ["C3", "Cz", "C4"])
+picks = pick_types(raw.info, meg=False, eeg=True, stim=False, eog=False,
+                   exclude='bads')
+
 epochs = mne.Epochs(raw, events, event_ids, tmin, tmax, proj=True,
                         picks=picks, baseline=None, preload=True)
 
@@ -77,12 +81,3 @@ class_balance = max(class_balance, 1. - class_balance)
 print("LDA Classification accuracy: %f / Chance level: %f" % (np.mean(scores_lda), class_balance))
 print("LDA SHRINKED Classification accuracy: %f / Chance level: %f" % (np.mean(scores_ldashrinkage), class_balance))
 print("SVC Classification accuracy: %f / Chance level: %f" % (np.mean(scores_svc), class_balance))
-
-csp.fit_transform(epochs_data_train, labels)
-
-evoked = epochs.average()
-evoked.data = csp.patterns_.T
-evoked.times = np.arange(evoked.data.shape[0])
-
-evoked.plot_topomap(times=[0, 1, 2, 3, 4, 5], ch_type='eeg')
-pass
