@@ -95,13 +95,13 @@ for train_idx, test_idx in cv.split(epochs_data_train):
     X_test = csp.transform(epochs_data_train[test_idx])
 
     # fit classifier
-    svc.fit(X_train, y_train)
+    lda_shrinkage.fit(X_train, y_train)
 
     # running classifier: test classifier on sliding window
     score_this_window = []
     for n in w_start:
         X_test = csp.transform(epochs_data_train[test_idx][:, :, n:(n + w_length)])
-        score_this_window.append(svc.score(X_test, y_test))
+        score_this_window.append(lda_shrinkage.score(X_test, y_test))
     scores_windows.append(score_this_window)
 
 # Plot scores over time
