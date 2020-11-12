@@ -88,7 +88,7 @@ w_start = np.arange(0, epochs_data_train.shape[2] - w_length, w_step)
 
 scores_windows = []
 
-for train_idx, test_idx in cv:
+for train_idx, test_idx in cv.split(epochs_data_train):
     y_train, y_test = labels[train_idx], labels[test_idx]
 
     X_train = csp.fit_transform(epochs_data_train[train_idx], y_train)
