@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import numpy as np
+import os
 import mne
 import matplotlib.pyplot as plt
 
@@ -17,6 +18,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.model_selection import ShuffleSplit
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import cross_val_score
+from joblib import dump
 
 tmin, tmax = -1., 4.
 event_ids=dict(hands=2, feet=3)   # 2 -> hands   | 3 -> feet
@@ -24,7 +26,7 @@ event_ids=dict(hands=2, feet=3)   # 2 -> hands   | 3 -> feet
 runs = [6, 10, 14]  # use only hand and feet motor imagery runs
 raw_fnames = list()
 
-for subject in [s for s in range(1, 2) if s not in (88, 92, 100)]:
+for subject in [s for s in range(1, 2) if s not in (88, 92, 100)]: # We only use subject 1
     tmp_raw_fnames = eegbci.load_data(subject, runs)
     raw_fnames += tmp_raw_fnames
 
@@ -89,6 +91,7 @@ w_start = np.arange(0, epochs_data_train.shape[2] - w_length, w_step)
 scores_windows = []
 
 for train_idx, test_idx in cv.split(epochs_data_train):
+    print(1)
     y_train, y_test = labels[train_idx], labels[test_idx]
 
     X_train = csp.fit_transform(epochs_data_train[train_idx], y_train)
@@ -116,3 +119,11 @@ plt.ylabel('classification accuracy')
 plt.title('Classification score over time')
 plt.legend(loc='lower right')
 plt.show()
+
+lda_shrinkage.fit(csp.fit_transform(epochs_data_train, labels), labels)
+try:
+    os.remove('model.joblib')
+except OSError:
+    pass
+dump(lda_shrinkage, 'model.joblib')
+pass
