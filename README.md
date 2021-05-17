@@ -1,5 +1,6 @@
 # Total-perspective-vortex
 42 2020-Learning to parse, analyze and predict on raw data from MNE/EGG data
+Status : Not finished yet
 
 ### Total-perspective-vortex
 
