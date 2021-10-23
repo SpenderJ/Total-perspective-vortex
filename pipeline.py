@@ -5,14 +5,13 @@ import os
 import mne
 import matplotlib.pyplot as plt
 
-from mne import Epochs, pick_types, find_events
-from mne.channels import read_layout
-from mne.io import concatenate_raws, read_raw_edf
+from CSP import CSP  # use my own CSP
+
+from mne.io import concatenate_raws
 from mne.datasets import eegbci
-from mne import Epochs, pick_types, find_events, events_from_annotations
+from mne import events_from_annotations
 from mne.channels import make_standard_montage
-from mne.viz import *
-from mne.decoding import CSP
+# from mne.decoding import CSP  # use mne CSP
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.model_selection import ShuffleSplit
@@ -20,37 +19,59 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import cross_val_score
 from joblib import dump
 
+data = 'mne_data'
 tmin, tmax = -1., 4.
-event_ids=dict(hands=2, feet=3)   # 2 -> hands   | 3 -> feet
-# subject = 1  # Use data of subject number 1
-runs = [6, 10, 14]  # use only hand and feet motor imagery runs
-raw_fnames = list()
+event_ids=dict(T1=0, T2=1)
+subjects = [2]  # Use data of subject number 1
+R1 = [6, 10, 14]  # motor imagery: hands vs feet
+R2 = [4, 8, 12]  # motor imagery: left hand vs right hand
 
-for subject in [s for s in range(1, 2) if s not in (88, 92, 100)]: # We only use subject 1
-    tmp_raw_fnames = eegbci.load_data(subject, runs)
-    raw_fnames += tmp_raw_fnames
+raw_fnames = os.listdir(f"{data}/{subjects[0]}")
+dataset = []
+subject = []
+sfreq = None
 
-# Now globalize the data
+for i, f in enumerate(raw_fnames):
+    if f.endswith(".edf") and int(f.split('R')[1].split(".")[0]) in R2:
+        subject_data = mne.io.read_raw_edf(os.path.join(f"{data}/{subjects[0]}", f), preload=True)
+        if sfreq is None:
+            sfreq = subject_data.info["sfreq"]
+        if subject_data.info["sfreq"] == sfreq:
+            subject.append(subject_data)
+        else:
+            break
+dataset.append(mne.concatenate_raws(subject))
+raw = concatenate_raws(dataset)
 
-raw = concatenate_raws([read_raw_edf(f, preload=True, stim_channel='auto') for f in raw_fnames])
+print(raw)
+print(raw.info)
+print(raw.info["ch_names"])
+print(raw.annotations)
+
 raw.rename_channels(lambda x: x.strip('.'))
-
+montage = make_standard_montage('standard_1020')
 eegbci.standardize(raw)
+
 # create 10-05 system
-montage = make_standard_montage('standard_1005')
 raw.set_montage(montage)
-raw.filter(7., 30., method='iir')
 
-events, _ = events_from_annotations(raw)
+# plot
+montage = raw.get_montage()
+p = montage.plot()
+p = mne.viz.plot_raw(raw, scalings={"eeg": 75e-6})
 
-# picks = mne.pick_channels(raw.info["ch_names"], ["C3", "Cz", "C4"])
-picks = pick_types(raw.info, meg=False, eeg=True, stim=False, eog=False,
-                   exclude='bads')
+# data filtered
+data_filter = raw.copy()
+data_filter.set_montage(montage)
+data_filter.filter(7, 30, fir_design='firwin', skip_by_annotation='edge')
+p = mne.viz.plot_raw(data_filter, scalings={"eeg": 75e-6})
 
-epochs = mne.Epochs(raw, events, event_ids, tmin, tmax, proj=True,
-                        picks=picks, baseline=None, preload=True)
-
-labels = epochs.events[:, -1] - 2
+# get events
+events, _ = events_from_annotations(data_filter, event_id=event_ids)
+picks = mne.pick_types(data_filter.info, meg=False, eeg=True, stim=False, eog=False, exclude='bads')
+epochs = mne.Epochs(data_filter, events, event_ids, tmin, tmax, proj=True,
+                    picks=picks, baseline=None, preload=True)
+labels = epochs.events[:, -1]
 
 epochs_data_train = epochs.get_data()
 cv = ShuffleSplit(10, test_size=0.2, random_state=42)
@@ -126,4 +147,24 @@ try:
 except OSError:
     pass
 dump(lda_shrinkage, 'model.joblib')
+
+
+# Prediction
+
+pivot = int(0.5 * len(epochs_data_train))
+
+clf = clf.fit(epochs_data_train[:pivot], labels[:pivot])
+try :
+    p = clf.named_steps["CSP"].plot_patterns(epochs.info, ch_type='eeg', units='Patterns (AU)', size=1.5)
+except AttributeError:
+    print("Method not implemented")
+
+print("X shape= ", epochs_data_train[pivot:].shape, "y shape= ", labels[pivot:].shape)
+
+scores = []
+for n in range(epochs_data_train[pivot:].shape[0]):
+    pred = clf.predict(epochs_data_train[pivot:][n:n + 1, :, :])
+    print("n=", n, "pred= ", pred, "truth= ", labels[pivot:][n:n + 1])
+    scores.append(1 - np.abs(pred[0] - labels[pivot:][n:n + 1][0]))
+print("Mean acc= ", np.mean(scores))
 pass
